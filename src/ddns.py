@@ -99,7 +99,7 @@ def set_record(rr, recordId, value):
 
     return json["RecordId"]
 
-if __name__ == "__main__":
+def ddns():
     domainName, rr = get_env()
 
     ip = get_public_ip()
@@ -111,4 +111,7 @@ if __name__ == "__main__":
     if not ip == record:
         id_ = set_record(rr, id_, ip)
         print("set_record {}".format(id_))
+
+if __name__ == "__main__":
+    ddns()
 
