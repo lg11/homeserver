@@ -64,7 +64,7 @@ def log(func):
 
     @wraps(func)
     def wrapper_log(*args, **kwargs):
-        print("call {}".format(func.__name__))
+        print("call\n\t{}".format(func.__name__))
 
         return func(*args, **kwargs)
 
@@ -155,8 +155,6 @@ def get_record_id(domainName, rrKeyWord):
     json = call_dns_api(params)
 
     records = json["DomainRecords"]["Record"]
-    if len(records) < 1:
-        return None
 
     return records[0]["RecordId"]
 
@@ -176,12 +174,10 @@ def set_record(rr, recordId, value):
 
 @log
 def update_rr(domain, rr, value):
-    dn = domain[len(rr) + 1:]
+    dn = domain[len(rr) + 3:] if domain[0] == "*" else domain[len(rr) + 1:]
     rr = "_acme-challenge." + rr
 
     record_id = get_record_id(dn, rr)
-    if record_id == None:
-        print("update_rr error\n\trecord_id = {}".format(record_id))
     set_record(rr, record_id, value)
 
 @retry((ConnectionError, ProxyError))

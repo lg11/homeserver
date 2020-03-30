@@ -1,4 +1,5 @@
 
+from functools import wraps
 from urllib.parse import urlencode
 from urllib.request import pathname2url
 from base64 import b64encode
@@ -7,13 +8,19 @@ import hmac
 from datetime import datetime
 from os import getenv
 
-accesskey = getenv("ALIDNS_ACCESSKEY", "accesskey.txt")
-    
-def load_accesskey():
-    global accesskey
-    with open(accesskey, "r") as f:
+def load_accesskey(func):
+    with open(getenv("ALIDNS_ACCESSKEY", "accesskey.txt"), "r") as f:
         lines = f.readlines()
-        return lines[0].strip(), lines[1].strip()
+        accessKeyId = lines[0].strip()
+        accessKeySecret = lines[1].strip()
+    @wraps(func)
+    def wrapper():
+        return accessKeyId, accessKeySecret
+    return wrapper
+
+@load_accesskey
+def get_accesskey():
+    pass
 
 def replace_urlencode(url):
     return url.replace("+", "%20").replace("*", "%2A").replace("%7E", "~")
@@ -35,7 +42,7 @@ def get_nonce():
 
 def get_url_data(params):
     url = "https://alidns.aliyuncs.com/?Action={}".format(params["Action"])
-    accessKeyId, accessKeySecret = load_accesskey()
+    accessKeyId, accessKeySecret = get_accesskey()
 
     params.update({
         "Format": "JSON",

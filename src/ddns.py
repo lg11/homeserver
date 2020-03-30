@@ -11,18 +11,14 @@ from time import sleep
 from os import getenv
 from sys import exit
 
-def get_env():
-    domainName = getenv("DDNS_DOMAINNAME")
-    rr = getenv("DDNS_RR")
-
-    if domainName is None:
-        print("error: DDNS_DOMAINNAME")
-        exit(1)
-    if rr is None:
-        print("error: DDNS_RR")
-        exit(1)
-
-    return domainName, rr
+def get_env(key, default_value=None):
+    value = getenv(key)
+    if value == None:
+        if default_value == None:
+            print("get_env error\n\t{}".format(key))
+            exit(1)
+        value = default_value
+    return value
 
 def retry(errors):
     retry_limit = getenv("DDNS_RETRY_LIMIT", 6)
@@ -48,9 +44,6 @@ def get_public_ip():
     resolver.timeout = getenv("DDNS_TIMEOUT", 6)
 
     answer = resolver.query("myip.opendns.com", "A")
-    if len(answer) < 1:
-        print("error: len(answer) = {}".format(len(answer)))
-        exit(1)
 
     return answer[0].to_text()
 
@@ -60,7 +53,6 @@ def call_api(params):
 
     resp = post(url, data=data)
     if not resp.status_code == 200:
-        print("error: status_code = {}".format(resp.status_code))
         print(resp.status_code, resp.request.method, resp.request.url)
         print(resp.text)
         exit(1)
@@ -81,7 +73,7 @@ def get_record(domainName, rrKeyWord):
 
     records = json["DomainRecords"]["Record"]
     if len(records) < 1:
-        print("error: len(records) = {}".format(len(records)))
+        print("get_record error\n\tlen(records) = {}".format(len(records)))
         exit(1)
 
     return records[0]["RecordId"], records[0]["Value"]
@@ -100,7 +92,8 @@ def set_record(rr, recordId, value):
     return json["RecordId"]
 
 def ddns():
-    domainName, rr = get_env()
+    domainName = get_env("DDNS_DOMAINNAME")
+    rr = get_env("DDNS_RR")
 
     ip = get_public_ip()
     print("get_public_ip {}".format(ip))
