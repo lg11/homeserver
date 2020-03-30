@@ -44,7 +44,7 @@ def get_env(key, default_value=None):
     return value
 
 def check_resp(resp):
-    if not resp.status_code in (200, 201):
+    if not resp.status_code in (200, 201,):
         print(resp.status_code, resp.request.method, resp.request.url)
         print(resp.text)
         exit(1)

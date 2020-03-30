@@ -1,9 +1,7 @@
 
 from alidns import get_url_data
 
-from dns.resolver import Resolver
-from dns.exception import Timeout
-from requests import post
+from requests import get, post
 from requests.exceptions import ConnectionError, ProxyError
 
 from functools import wraps
@@ -19,6 +17,12 @@ def get_env(key, default_value=None):
             exit(1)
         value = default_value
     return value
+
+def check_resp(resp):
+    if not resp.status_code in (200,):
+        print(resp.status_code, resp.request.method, resp.request.url)
+        print(resp.text)
+        exit(1)
 
 def retry(errors):
     retry_limit = getenv("DDNS_RETRY_LIMIT", 6)
@@ -37,25 +41,19 @@ def retry(errors):
         return wrapper1
     return wrapper0
 
-@retry((Timeout))
+@retry((ConnectionError, ProxyError))
 def get_public_ip():
-    resolver = Resolver(configure=False)
-    resolver.nameservers = ["208.67.222.222", "208.67.220.220"]
-    resolver.timeout = getenv("DDNS_TIMEOUT", 6)
+    resp = get("https://api.ipify.org?format=json")
+    check_resp(resp)
 
-    answer = resolver.query("myip.opendns.com", "A")
-
-    return answer[0].to_text()
+    return resp.json()["ip"]
 
 @retry((ConnectionError, ProxyError))
 def call_api(params):
     url, data = get_url_data(params)
 
     resp = post(url, data=data)
-    if not resp.status_code == 200:
-        print(resp.status_code, resp.request.method, resp.request.url)
-        print(resp.text)
-        exit(1)
+    check_resp(resp)
 
     return resp.json()
 
