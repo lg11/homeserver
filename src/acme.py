@@ -119,17 +119,17 @@ def generate_csr(domain):
     csr = builder.sign(key, SHA256(), default_backend())
     csr = b64(csr.public_bytes(Encoding.DER))
 
-    output = getenv("ACME_OUTPUT", ".")
-    with open("{}/{}".format(output, "key.pem"), "wb") as f:
-        f.write(key.private_bytes(Encoding.PEM, PrivateFormat.TraditionalOpenSSL, NoEncryption()))
+    key = key.private_bytes(Encoding.PEM, PrivateFormat.TraditionalOpenSSL, NoEncryption())
 
-    return csr
+    return csr, key
 
 @log
-def save_cert(cert):
+def save_cert(cert, key):
     output = getenv("ACME_OUTPUT", ".")
     with open("{}/{}".format(output, "cert.pem"), "wb") as f:
         f.write(cert)
+    with open("{}/{}".format(output, "key.pem"), "wb") as f:
+        f.write(key)
 
 @retry((ConnectionError, ProxyError))
 @log
@@ -338,26 +338,27 @@ def get_cert():
     domain = get_env("ACME_DOMAIN")
     rr = get_env("ACME_RR")
 
-    key = generate_private_key(SECP256R1(), default_backend())
-    jwk = generate_jwk(key)
+    k = generate_private_key(SECP256R1(), default_backend())
+    jwk = generate_jwk(k)
     thumbprint = b64(sha256(dumps(jwk, sort_keys=True, separators=(",", ":")).encode("utf-8")))
-    csr = generate_csr(domain)
+    csr, key = generate_csr(domain)
 
     directory = get_directory()
     nonce = head_new_nonce(directory)
-    nonce, kid = post_new_account(directory, nonce, key, jwk)
-    nonce, order, authorization, finalize = post_new_order(directory, nonce, key, kid, domain)
-    nonce, challenge, token = get_authorization(directory, nonce, key, kid, authorization)
+    nonce, kid = post_new_account(directory, nonce, k, jwk)
+    nonce, order, authorization, finalize = post_new_order(directory, nonce, k, kid, domain)
+    nonce, challenge, token = get_authorization(directory, nonce, k, kid, authorization)
 
     update_rr(domain, rr, b64(sha256("{}.{}".format(token, thumbprint).encode("ascii"))))
-    nonce = post_chanllenge(directory, nonce, key, kid, challenge)
-    nonce = check_status(directory, nonce, key, kid, order)
+    nonce = post_chanllenge(directory, nonce, k, kid, challenge)
+    nonce = check_status(directory, nonce, k, kid, order)
 
-    nonce, certificate = post_finalize(directory, nonce, key, kid, finalize, csr)
-    nonce, cert = get_certificate(directory, nonce, key, kid, certificate)
-    save_cert(cert)
+    nonce, certificate = post_finalize(directory, nonce, k, kid, finalize, csr)
+    nonce, cert = get_certificate(directory, nonce, k, kid, certificate)
 
-    nonce = post_account(directory, nonce, key, kid)
+    nonce = post_account(directory, nonce, k, kid)
+
+    save_cert(cert, key)
 
 if __name__ == "__main__":
     get_cert()
